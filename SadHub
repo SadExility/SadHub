@@ -1,0 +1,274 @@
+-- Sad Hub by SadExility
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local CamlockEnabled = false
+local ESPEnabled = false
+local ShowFOV = false
+local CurrentTarget = nil
+local CamlockSpeed = 0.18
+local CamlockFOV = 80
+local AutoSwitchTarget = true
+local ESPTags = {}
+local TeamCheck = true
+local ESPTeamCheck = true
+
+local ShowChams, ShowBox, ShowLine, ShowTracer = false, false, false, false
+
+-- Notificação de boas-vindas
+Rayfield:Notify({
+    Title = "Sad Hub",
+    Content = "Bem-vindo ao Sad Hub!",
+    Duration = 5,
+    Image = 4483362458,
+})
+
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Thickness = 2
+FOVCircle.Transparency = 0.4
+FOVCircle.Color = Color3.new(1, 1, 1)
+FOVCircle.Filled = false
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = CamlockFOV
+    FOVCircle.Visible = ShowFOV and CamlockEnabled
+end)
+
+-- Funções Auxiliares
+local function IsEnemy(player)
+    return player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and (not TeamCheck or player.Team ~= LocalPlayer.Team)
+end
+
+local function GetClosestEnemy()
+    local closest, dist = nil, math.huge
+    local center = Camera.ViewportSize / 2
+    for _, player in pairs(Players:GetPlayers()) do
+        if IsEnemy(player) then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if magnitude < dist and magnitude <= CamlockFOV then
+                    dist = magnitude
+                    closest = player
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function UpdateCamlock()
+    if not CamlockEnabled then return end
+    if not CurrentTarget or not IsEnemy(CurrentTarget) then
+        if AutoSwitchTarget then
+            CurrentTarget = GetClosestEnemy()
+        else
+            return
+        end
+    end
+    if CurrentTarget and IsEnemy(CurrentTarget) then
+        local pos = CurrentTarget.Character.HumanoidRootPart.Position
+        local vel = CurrentTarget.Character.HumanoidRootPart.Velocity
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos + vel * CamlockSpeed)
+    end
+end
+
+RunService.RenderStepped:Connect(UpdateCamlock)
+
+-- ESP
+local function CreateOrUpdateESP(player)
+    if player == LocalPlayer then return end
+    if not ESPEnabled then return end
+    if ESPTeamCheck and player.Team == LocalPlayer.Team then return end
+
+    local function makeESP()
+        if not ESPTags[player] then
+            local tag = Instance.new("BillboardGui")
+            tag.Size = UDim2.new(0, 100, 0, 40)
+            tag.Adornee = player.Character and player.Character:FindFirstChild("Head")
+            tag.AlwaysOnTop = true
+            tag.Name = "ESP"
+            tag.StudsOffset = Vector3.new(0, 3.5, 0)
+            tag.Parent = player.Character or player.CharacterAdded:Wait()
+
+            local label = Instance.new("TextLabel", tag)
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.TextStrokeTransparency = 0.5
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 12
+
+            RunService.RenderStepped:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+                    local dist = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+                    label.Text = string.format("%s\n%.0f HP | %.1f m", player.DisplayName, player.Character.Humanoid.Health, dist)
+                end
+            end)
+
+            ESPTags[player] = tag
+        end
+    end
+
+    if player.Character then
+        makeESP()
+    else
+        player.CharacterAdded:Connect(function()
+            wait(1)
+            makeESP()
+        end)
+    end
+end
+
+local function ToggleESP(state)
+    ESPEnabled = state
+    if ESPEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            CreateOrUpdateESP(player)
+        end
+    else
+        for _, tag in pairs(ESPTags) do
+            if tag then tag:Destroy() end
+        end
+        ESPTags = {}
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        CreateOrUpdateESP(player)
+    end)
+end)
+
+-- GUI Rayfield
+local Window = Rayfield:CreateWindow({
+    Name = "Sad Hub",
+    LoadingTitle = "Sad Hub",
+    LoadingSubtitle = "By SadExility",
+    ConfigurationSaving = { Enabled = false },
+})
+
+local CamlockTab = Window:CreateTab("Camlock", 4483362458)
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+
+CamlockTab:CreateToggle({
+    Name = "Camlock On/Off",
+    CurrentValue = false,
+    Callback = function(Value)
+        CamlockEnabled = Value
+        if CamlockEnabled then
+            CurrentTarget = GetClosestEnemy()
+        else
+            CurrentTarget = nil
+        end
+    end,
+})
+
+CamlockTab:CreateSlider({
+    Name = "Velocidade do Camlock",
+    Range = {0.01, 0.5},
+    Increment = 0.01,
+    CurrentValue = CamlockSpeed,
+    Callback = function(Value)
+        CamlockSpeed = Value
+    end,
+})
+
+CamlockTab:CreateSlider({
+    Name = "FOV do Camlock",
+    Range = {30, 300},
+    Increment = 1,
+    CurrentValue = CamlockFOV,
+    Callback = function(Value)
+        CamlockFOV = Value
+    end,
+})
+
+CamlockTab:CreateToggle({
+    Name = "Mostrar FOV do Camlock",
+    CurrentValue = false,
+    Callback = function(Value)
+        ShowFOV = Value
+    end,
+})
+
+CamlockTab:CreateToggle({
+    Name = "Auto trocar de alvo",
+    CurrentValue = true,
+    Callback = function(Value)
+        AutoSwitchTarget = Value
+    end,
+})
+
+CamlockTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = true,
+    Callback = function(Value)
+        TeamCheck = Value
+    end,
+})
+
+ESPTab:CreateToggle({
+    Name = "ESP On/Off",
+    CurrentValue = false,
+    Callback = ToggleESP,
+})
+
+ESPTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = true,
+    Callback = function(Value)
+        ESPTeamCheck = Value
+    end,
+})
+
+ESPTab:CreateToggle({ Name = "Chams", CurrentValue = false, Callback = function(v) ShowChams = v end })
+ESPTab:CreateToggle({ Name = "ESP Box", CurrentValue = false, Callback = function(v) ShowBox = v end })
+ESPTab:CreateToggle({ Name = "ESP Line", CurrentValue = false, Callback = function(v) ShowLine = v end })
+ESPTab:CreateToggle({ Name = "Tracer", CurrentValue = false, Callback = function(v) ShowTracer = v end })
+
+-- Botões Flutuantes
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "SadHubFloat"
+ScreenGui.ResetOnSpawn = false
+
+local function CreateFloatButton(text, pos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 120, 0, 40)
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.BackgroundTransparency = 0.4
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.Parent = ScreenGui
+    btn.Draggable = true
+    btn.Active = true
+    btn.Selectable = true
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 10)
+    btn.MouseButton1Click:Connect(callback)
+end
+
+CreateFloatButton("Camlock On/Off", UDim2.new(0.85, 0, 0.8, 0), function()
+    CamlockEnabled = not CamlockEnabled
+    if CamlockEnabled then
+        CurrentTarget = GetClosestEnemy()
+    else
+        CurrentTarget = nil
+    end
+end)
+
+CreateFloatButton("ESP On/Off", UDim2.new(0.85, 0, 0.87, 0), function()
+    ESPEnabled = not ESPEnabled
+    ToggleESP(ESPEnabled)
+end)
