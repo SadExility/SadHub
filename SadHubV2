@@ -4,13 +4,13 @@ local GuiService = game:GetService("GuiService")
 local StarterGui = game:GetService("StarterGui")
 
 local lp = Players.LocalPlayer
-local camlockOn = false
-local speedOn = false
-local speedValue = 16
+local camlockOn, speedOn, hitboxOn = false, false, false
+local speedValue, hitboxSize = 16, 5
 local target = nil
 local prediction = 0.13
+local originalSizes = {}
 
--- UI Principal
+-- UI
 local gui = Instance.new("ScreenGui", game.CoreGui)
 gui.Name = "SadHubUI"
 
@@ -18,7 +18,7 @@ local buttonColor = Color3.fromRGB(40, 40, 40)
 local textColor = Color3.fromRGB(255, 255, 255)
 local fontType = Enum.Font.Arcade
 
--- Bolinha para abrir/fechar a aba de velocidade
+-- Bolinha de abrir menu
 local toggleBall = Instance.new("TextButton", gui)
 toggleBall.Size = UDim2.new(0, 30, 0, 30)
 toggleBall.Position = UDim2.new(0, 10, 0.5, -80)
@@ -30,15 +30,28 @@ toggleBall.TextScaled = true
 toggleBall.Draggable = true
 toggleBall.Active = true
 
--- Aba da velocidade (oculta inicialmente)
-local speedFrame = Instance.new("Frame", gui)
-speedFrame.Size = UDim2.new(0, 140, 0, 140)
-speedFrame.Position = UDim2.new(0, 50, 0.5, -80)
-speedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-speedFrame.Visible = false
+-- Janela principal (menu)
+local menu = Instance.new("Frame", gui)
+menu.Size = UDim2.new(0, 160, 0, 280)
+menu.Position = UDim2.new(0, 50, 0.5, -100)
+menu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+menu.BackgroundTransparency = 0.2
+menu.Visible = false
+menu.Active = true
+menu.Draggable = true
 
--- Botão ativar/desativar speed
-local speedBtn = Instance.new("TextButton", speedFrame)
+-- Borda arredondada
+local corner = Instance.new("UICorner", menu)
+corner.CornerRadius = UDim.new(0, 8)
+
+-- Mostrar ou esconder menu
+toggleBall.MouseButton1Click:Connect(function()
+	menu.Visible = not menu.Visible
+	toggleBall.Text = menu.Visible and "-" or "+"
+end)
+
+-- SPEED ON/OFF
+local speedBtn = Instance.new("TextButton", menu)
 speedBtn.Size = UDim2.new(1, -20, 0, 30)
 speedBtn.Position = UDim2.new(0, 10, 0, 10)
 speedBtn.Text = "Speed: OFF"
@@ -47,10 +60,9 @@ speedBtn.TextColor3 = textColor
 speedBtn.TextScaled = true
 speedBtn.Font = fontType
 
--- Caixa de texto para velocidade
-local speedBox = Instance.new("TextBox", speedFrame)
+local speedBox = Instance.new("TextBox", menu)
 speedBox.Size = UDim2.new(1, -20, 0, 30)
-speedBox.Position = UDim2.new(0, 10, 0, 45)
+speedBox.Position = UDim2.new(0, 10, 0, 50)
 speedBox.Text = tostring(speedValue)
 speedBox.PlaceholderText = "15 - 300"
 speedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -59,23 +71,38 @@ speedBox.TextScaled = true
 speedBox.ClearTextOnFocus = false
 speedBox.Font = fontType
 
--- Novo botão para executar seu script
-local execBtn = Instance.new("TextButton", speedFrame)
+-- Executar Redz
+local execBtn = Instance.new("TextButton", menu)
 execBtn.Size = UDim2.new(1, -20, 0, 30)
-execBtn.Position = UDim2.new(0, 10, 0, 85)
+execBtn.Position = UDim2.new(0, 10, 0, 90)
 execBtn.Text = "Executar Redz"
 execBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
-execBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+execBtn.TextColor3 = textColor
 execBtn.TextScaled = true
 execBtn.Font = fontType
 
-execBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau"))(Settings)
-    end)
-end)
+-- Hitbox Expander
+local hitboxBtn = Instance.new("TextButton", menu)
+hitboxBtn.Size = UDim2.new(1, -20, 0, 30)
+hitboxBtn.Position = UDim2.new(0, 10, 0, 130)
+hitboxBtn.Text = "Hitbox: OFF"
+hitboxBtn.BackgroundColor3 = buttonColor
+hitboxBtn.TextColor3 = textColor
+hitboxBtn.TextScaled = true
+hitboxBtn.Font = fontType
 
--- Botão CAMLOCK
+local hitboxBox = Instance.new("TextBox", menu)
+hitboxBox.Size = UDim2.new(1, -20, 0, 30)
+hitboxBox.Position = UDim2.new(0, 10, 0, 170)
+hitboxBox.Text = tostring(hitboxSize)
+hitboxBox.PlaceholderText = "Tamanho ex: 5"
+hitboxBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+hitboxBox.TextColor3 = textColor
+hitboxBox.TextScaled = true
+hitboxBox.ClearTextOnFocus = false
+hitboxBox.Font = fontType
+
+-- Botão CAMLOCK (flutuante)
 local camBtn = Instance.new("TextButton", gui)
 camBtn.Size = UDim2.new(0, 140, 0, 40)
 camBtn.Position = UDim2.new(0, 10, 0.5, 40)
@@ -86,26 +113,72 @@ camBtn.TextScaled = true
 camBtn.Font = fontType
 camBtn.Draggable = true
 camBtn.Active = true
+Instance.new("UICorner", camBtn).CornerRadius = UDim.new(0, 8)
 
--- Arredondar botão do Camlock
-local camUICorner = Instance.new("UICorner", camBtn)
-camUICorner.CornerRadius = UDim.new(0, 8)
-
--- Mostrar ou esconder a aba de velocidade
-toggleBall.MouseButton1Click:Connect(function()
-    speedFrame.Visible = not speedFrame.Visible
-    toggleBall.Text = speedFrame.Visible and "-" or "+"
+-- Funções
+speedBtn.MouseButton1Click:Connect(function()
+	speedOn = not speedOn
+	speedBtn.Text = speedOn and "Speed: ON" or "Speed: OFF"
+	if not speedOn and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+		lp.Character.Humanoid.WalkSpeed = 16
+	end
 end)
 
--- Ativar/Desativar Camlock
+speedBox.FocusLost:Connect(function()
+	local val = tonumber(speedBox.Text)
+	if val and val >= 15 and val <= 300 then
+		speedValue = val
+	else
+		speedBox.Text = tostring(speedValue)
+	end
+end)
+
+execBtn.MouseButton1Click:Connect(function()
+	pcall(function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau"))()
+	end)
+end)
+
+-- Função que restaura hitboxes para o tamanho original
+local function restoreHitboxes()
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = p.Character.HumanoidRootPart
+			if originalSizes[p] then
+				hrp.Size = originalSizes[p]
+				hrp.Transparency = 1
+				hrp.Material = Enum.Material.Plastic
+				hrp.CanCollide = true
+				originalSizes[p] = nil
+			end
+		end
+	end
+end
+
+hitboxBtn.MouseButton1Click:Connect(function()
+	hitboxOn = not hitboxOn
+	hitboxBtn.Text = hitboxOn and "Hitbox: ON" or "Hitbox: OFF"
+	if not hitboxOn then
+		restoreHitboxes()
+	end
+end)
+
+hitboxBox.FocusLost:Connect(function()
+	local val = tonumber(hitboxBox.Text)
+	if val and val >= 1 and val <= 100 then
+		hitboxSize = val
+	else
+		hitboxBox.Text = tostring(hitboxSize)
+	end
+end)
+
 camBtn.MouseButton1Click:Connect(function()
 	camlockOn = not camlockOn
 	camBtn.Text = camlockOn and "Camlock: ON" or "Camlock: OFF"
-
 	if camlockOn then
 		local closest = nil
 		local shortest = math.huge
-		local center = Vector2.new(GuiService:GetScreenResolution().X/2, GuiService:GetScreenResolution().Y/2)
+		local center = Vector2.new(GuiService:GetScreenResolution().X / 2, GuiService:GetScreenResolution().Y / 2)
 		for _, p in pairs(Players:GetPlayers()) do
 			if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
 				local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
@@ -129,27 +202,24 @@ camBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Ativar/Desativar Speed
-speedBtn.MouseButton1Click:Connect(function()
-	speedOn = not speedOn
-	speedBtn.Text = speedOn and "Speed: ON" or "Speed: OFF"
-	if not speedOn then
-		local char = lp.Character
-		if char and char:FindFirstChild("Humanoid") then
-			char.Humanoid.WalkSpeed = 16
+local function updateHitboxes()
+	if hitboxOn then
+		for _, p in pairs(Players:GetPlayers()) do
+			if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+				local hrp = p.Character.HumanoidRootPart
+				if not originalSizes[p] then
+					originalSizes[p] = hrp.Size
+				end
+				hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+				hrp.Transparency = 0.7
+				hrp.Material = Enum.Material.ForceField
+				hrp.CanCollide = false
+			end
 		end
-	end
-end)
-
--- Atualizar valor da velocidade
-speedBox.FocusLost:Connect(function()
-	local val = tonumber(speedBox.Text)
-	if val and val >= 15 and val <= 300 then
-		speedValue = val
 	else
-		speedBox.Text = tostring(speedValue)
+		restoreHitboxes()
 	end
-end)
+end
 
 -- Loop principal
 RunService.RenderStepped:Connect(function()
@@ -157,15 +227,13 @@ RunService.RenderStepped:Connect(function()
 		local hrp = target.Character.HumanoidRootPart
 		workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, hrp.Position + hrp.Velocity * prediction)
 	end
-	if speedOn then
-		local char = lp.Character
-		if char and char:FindFirstChild("Humanoid") then
-			char.Humanoid.WalkSpeed = speedValue
-		end
+	if speedOn and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+		lp.Character.Humanoid.WalkSpeed = speedValue
 	end
+	updateHitboxes()
 end)
 
--- Notificação inicial
+-- Notificação
 pcall(function()
 	StarterGui:SetCore("SendNotification", {
 		Title = "SadHub 🧱",
