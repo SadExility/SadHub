@@ -92,7 +92,7 @@ return {
 		["spirit"] = 265,
 		["sunrise"] = 265,
 		["rainbow gun"] = 250,
-		["bat"] = 245,
+		["bat2022"] = 245,
 		["rainbow"] = 245,
 		["flora"] = 205,
 		["blizzard"] = 200,
